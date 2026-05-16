@@ -24,22 +24,12 @@ func TestPerSecondRate_Allows9InOneSecond(t *testing.T) {
 	fixed := time.Date(2026, 4, 18, 10, 30, 45, 100_000_000, time.UTC) // 10:30:45.100
 	g.SetClock(func() time.Time { return fixed })
 
-	baseReq := OrderCheckRequest{
-		Email: email, ToolName: "place_order",
-		Exchange: "NSE", Tradingsymbol: "RELIANCE", TransactionType: "BUY",
-		// Use LIMIT with a tiny value so the per-order cap doesn't trip.
-		Quantity: 1, Price: domain.NewINR(10), OrderType: "LIMIT",
-		Confirmed: true,
-	}
-
 	// 9 orders in the same calendar second — all should be allowed by the
-	// per-second check. We rotate symbols so the params-based duplicate
-	// check doesn't trip on identical (sym, side, qty) within 30s.
-	symbols := []string{"S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9"}
-	for i, sym := range symbols {
-		req := baseReq
-		req.Tradingsymbol = sym
-		r := g.checkPerSecondRate(req.Email)
+	// per-second check. checkPerSecondRate is keyed by email only (the
+	// per-second counter is not parameterised by symbol/side/qty), so we
+	// just loop the email-only call 9 times.
+	for i := 0; i < 9; i++ {
+		r := g.checkPerSecondRate(email)
 		assert.True(t, r.Allowed, "order %d in same second should be allowed (i=%d)", i+1, i)
 		// Record so subsequent calls see this one in the counter.
 		g.recordPerSecondOrder(email)
